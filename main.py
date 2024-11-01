@@ -3,6 +3,8 @@ from aiogram.filters.command import Command
 from decouple import config
 import asyncio
 
+from database.engine import create_db, drop_db, session_maker
+from middlewares.database import DataBaseSession
 from handlers.user_private import user_private_router
 from common.bot_commands import private
 
@@ -17,7 +19,24 @@ dp = Dispatcher() ### фильтрация сообщений от пользо�
 
 dp.include_router(user_private_router)
 
+
+async def on_startup(bot):
+    run_param = True
+    if run_param:
+        await drop_db()
+    await create_db()
+    print('Бот начал работу')
+
+async def on_shutdown(bot):
+    print('Бот завершил работу')
+
 async def main():
+
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
+
+    dp.update.middleware(DataBaseSession(session_pool=session_maker))
+
     await bot.delete_webhook(drop_pending_updates=True)  ### пропускаем обновления, полученные, пока бот не работал
     await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats()) ### обозначение команд главного меню
     await dp.start_polling(bot,allowed_updates=ALLOWED_UPDATES) ### Запуск polling

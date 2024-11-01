@@ -1,7 +1,5 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
-
-
 start_kb = ReplyKeyboardMarkup(
     keyboard=[
         [
@@ -18,3 +16,17 @@ start_kb = ReplyKeyboardMarkup(
 )
 
 del_kb = ReplyKeyboardRemove()
+
+main_portfolio_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [
+            KeyboardButton(text='Создать портфель'),
+            KeyboardButton(text='Выбрать портфель'),
+        ],
+        [
+            KeyboardButton(text='В главное меню'),
+        ]
+    ],
+    resize_keyboard=True,
+    input_field_placeholder='Выберите команду',
+)
