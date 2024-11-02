@@ -12,7 +12,7 @@ from common.bot_commands import private
 # Включаем логирование, чтобы не пропустить важные сообщения
 # logging.basicConfig(level=logging.INFO)
 
-ALLOWED_UPDATES = ['message','edited_message']
+# ALLOWED_UPDATES = ['message','edited_message', 'callback_query']
 
 bot = Bot(token=config('TOKEN'))
 dp = Dispatcher() ### фильтрация сообщений от пользователей
@@ -21,7 +21,7 @@ dp.include_router(user_private_router)
 
 
 async def on_startup(bot):
-    run_param = True
+    run_param = False
     if run_param:
         await drop_db()
     await create_db()
@@ -39,7 +39,7 @@ async def main():
 
     await bot.delete_webhook(drop_pending_updates=True)  ### пропускаем обновления, полученные, пока бот не работал
     await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats()) ### обозначение команд главного меню
-    await dp.start_polling(bot,allowed_updates=ALLOWED_UPDATES) ### Запуск polling
+    await dp.start_polling(bot,allowed_updates=dp.resolve_used_update_types()) ### Запуск polling
 
 if __name__ == '__main__':
     asyncio.run(main())

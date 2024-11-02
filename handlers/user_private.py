@@ -6,15 +6,18 @@ from aiogram.filters import StateFilter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from keyboards import reply
-from database.orm_queries import orm_add_portfolio
+from database.orm_queries import orm_add_portfolio, orm_get_portfolios, orm_delete_portfolio
+from keyboards.inline import get_allback_buttons
 
 user_private_router = Router()
+
+
+
 
 class AddPortfolio(StatesGroup):
     name = State()
     description = State()
     tickers = State()
-    # shares = State()
 
 
 # Обработчик команды /start
@@ -88,6 +91,31 @@ async def set_portfolio_tickers(message: types.Message, state: FSMContext, sessi
         await message.answer(f'Ошибка: \n{str(e)}',reply_markup=reply.main_portfolio_kb)
     
     await state.clear()
+
+
+# Меню обзора портфелей
+@user_private_router.message(F.text == 'Выбрать портфель')
+async def portfolios_query_command(message: types.Message, session: AsyncSession):
+    await message.answer('Ваши портфели:')
+    for portfolio in await orm_get_portfolios(session):
+        await message.answer(
+            f'Название: {portfolio.name}\nОписание: {portfolio.description}',
+            reply_markup=get_allback_buttons(btns={
+                'Удалить': f'delete_portfolio_{portfolio.id}',
+                'Изменить': f'change_ortfolio_{portfolio.id}',
+                'Выбрать': f'select_ortfolio_{portfolio.id}',
+                })
+        )
+
+# Удаление портфеля
+@user_private_router.callback_query(F.data.startswith('delete_portfolio_'))
+async def delete_portfolio_command(callback: types.CallbackQuery, session: AsyncSession):
+    portfolio_id = callback.data.split('_')[-1]
+    await orm_delete_portfolio(session,int(portfolio_id))
+    await callback.answer(f'Портфель удален')
+    # await callback.message.answer(f'Портфель удален')
+
+
 
 
 
