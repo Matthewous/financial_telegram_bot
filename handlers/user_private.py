@@ -2,11 +2,11 @@ from aiogram import types, Router, F
 from aiogram.filters.command import Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-from aiogram.filters import StateFilter
+from aiogram.filters import StateFilter, or_f
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from keyboards import reply
-from database.orm_queries import orm_add_portfolio, orm_get_portfolios, orm_delete_portfolio
+from database.orm_queries import orm_add_portfolio, orm_get_portfolios, orm_delete_portfolio, orm_get_portfolio, orm_update_portfolio
 from keyboards.inline import get_allback_buttons
 
 user_private_router = Router()
@@ -18,6 +18,8 @@ class AddPortfolio(StatesGroup):
     name = State()
     description = State()
     tickers = State()
+
+    portfolio_for_change = None
 
 
 # Обработчик команды /start
@@ -35,6 +37,19 @@ async def main_menu_command(message: types.Message):
 async def main_menu_command(message: types.Message):
     await message.answer('Портфели!', reply_markup=reply.main_portfolio_kb)
 
+# Изменение портфеля
+@user_private_router.callback_query(StateFilter(None),F.data.startswith('change_portfolio_'))
+async def change_portfolio_command(callback: types.CallbackQuery, state: FSMContext, session: AsyncSession):
+    portfolio_id = callback.data.split('_')[-1]
+    portfolio_for_change = await orm_get_portfolio(session, int(portfolio_id))
+    
+    AddPortfolio.portfolio_for_change = portfolio_for_change
+    await callback.answer()
+    if AddPortfolio.portfolio_for_change:
+        await callback.message.answer('Вы изменяете портфель! Чтобы оставить поле без изменений введите точку! Для отмены изменений - "отмена"')
+    await callback.message.answer('Введите навание портфеля:',reply_markup=types.ReplyKeyboardRemove())
+    await state.set_state(AddPortfolio.name)
+
 # Меню создания портфеля
 @user_private_router.message(StateFilter(None), F.text == 'Создать портфель')
 async def portfolio_add_name_command(message: types.Message, state:FSMContext):
@@ -49,47 +64,63 @@ async def cancel_handler(message: types.Message, state:FSMContext):
     current_state = await state.get_state()
     if current_state is None:
         return
+    if AddPortfolio.portfolio_for_change:
+        AddPortfolio.portfolio_for_change = None
     await state.clear()
     await message.answer('Действия отменены', reply_markup=reply.start_kb)
 
 # TODO хэндлер назад
 
 # Сохранение описания портфеля
-@user_private_router.message(StateFilter(AddPortfolio.name))
+@user_private_router.message(StateFilter(AddPortfolio.name,or_f(F.text, F.text=='.')))
 async def portfolio_add_description_command(message: types.Message, state:FSMContext):
-    await state.update_data(name=message.text)
+    if message.text and message.text == '.':
+        await state.update_data(name=AddPortfolio.portfolio_for_change.name)
+    else:
+        await state.update_data(name=message.text)
     await message.answer('Введите описание портфеля!')
     await state.set_state(AddPortfolio.description)
 
 # Сохранение структуры портфеля
-@user_private_router.message(StateFilter(AddPortfolio.description))
+@user_private_router.message(StateFilter(AddPortfolio.description,or_f(F.text, F.text=='.')))
 async def set_portfolio_description(message: types.Message, state: FSMContext):
-    await state.update_data(description=message.text)
+    if message.text and message.text == '.':
+        await state.update_data(description=AddPortfolio.portfolio_for_change.description)
+    else:
+        await state.update_data(description=message.text)
     await message.answer("Введите тикеры и их доли в формате: Тикер1 Доля1, Тикер2 Доля2 (например, YNDX 0.5, SBER 0.3)")
     await state.set_state(AddPortfolio.tickers)
 
 # Завершение создания портфеля
-@user_private_router.message(StateFilter(AddPortfolio.tickers))
+@user_private_router.message(StateFilter(AddPortfolio.tickers,or_f(F.text, F.text=='.')))
 async def set_portfolio_tickers(message: types.Message, state: FSMContext, session: AsyncSession):
-    tickers_data = message.text.split(",")
-    tickers = []
-    for ticker_data in tickers_data:
-        try:
-            ticker, share = ticker_data.strip().split()
-            tickers.append({"ticker": ticker, "share": float(share)})
-        except ValueError:
-            await message.answer("Ошибка ввода. Убедитесь, что формат правильный: Тикер1 Доля1, Тикер2 Доля2")
-            return
+    if message.text and message.text == '.':
+        await state.update_data(tickers=AddPortfolio.portfolio_for_change.tickers)
+    else:
+        tickers_data = message.text.split(",")
+        tickers = []
+        for ticker_data in tickers_data:
+            try:
+                ticker, share = ticker_data.strip().split()
+                tickers.append({"ticker": ticker, "share": float(share)})
+            except ValueError:
+                await message.answer("Ошибка ввода. Убедитесь, что формат правильный: Тикер1 Доля1, Тикер2 Доля2")
+                return
     
-    await state.update_data(tickers=tickers)
+        await state.update_data(tickers=tickers)
     data = await state.get_data()
     
     try:
-        await orm_add_portfolio(session, data)
-        await message.answer(f'Портфель создан!',reply_markup=reply.main_portfolio_kb)
+        if AddPortfolio.portfolio_for_change:
+            await orm_update_portfolio(session, AddPortfolio.portfolio_for_change.id, data)
+            await message.answer(f'Портфель изменен!',reply_markup=reply.main_portfolio_kb)
+        else:
+            await orm_add_portfolio(session, data)
+            await message.answer(f'Портфель создан!',reply_markup=reply.main_portfolio_kb)
     except Exception as e:
         await message.answer(f'Ошибка: \n{str(e)}',reply_markup=reply.main_portfolio_kb)
     
+    AddPortfolio.portfolio_for_change = None
     await state.clear()
 
 
@@ -102,8 +133,8 @@ async def portfolios_query_command(message: types.Message, session: AsyncSession
             f'Название: {portfolio.name}\nОписание: {portfolio.description}',
             reply_markup=get_allback_buttons(btns={
                 'Удалить': f'delete_portfolio_{portfolio.id}',
-                'Изменить': f'change_ortfolio_{portfolio.id}',
-                'Выбрать': f'select_ortfolio_{portfolio.id}',
+                'Изменить': f'change_portfolio_{portfolio.id}',
+                'Выбрать': f'select_portfolio_{portfolio.id}',
                 })
         )
 
@@ -113,7 +144,8 @@ async def delete_portfolio_command(callback: types.CallbackQuery, session: Async
     portfolio_id = callback.data.split('_')[-1]
     await orm_delete_portfolio(session,int(portfolio_id))
     await callback.answer(f'Портфель удален')
-    # await callback.message.answer(f'Портфель удален')
+    await callback.message.answer(f'Портфель удален')
+
 
 
 
