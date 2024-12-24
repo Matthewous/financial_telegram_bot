@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, BigInteger, Table
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, BigInteger, Table, Date
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -25,6 +25,8 @@ class Portfolio(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     description = Column(String)
+    initial_summ = Column(Float,nullable=False)
+    start_date = Column(Date, nullable=True)  # Добавлено поле для даты начала
 
     users = relationship("User", secondary=user_portfolio, back_populates="portfolios")
     stocks = relationship("Portfolio_Stocks", back_populates="portfolio")
@@ -48,4 +50,4 @@ class Portfolio_Stocks(Base):
     share = Column(Float)
 
     portfolio = relationship("Portfolio", back_populates="stocks")
-    stock = relationship("Stock", back_populates="portfolios")
+    stock = relationship("Stock")

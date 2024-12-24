@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 # Инлайновые кнопки с текстом
@@ -24,3 +24,12 @@ def get_url_buttons(
     for text, url in btns.items():
         keyboard.add(InlineKeyboardButton(text=text, url=url))
     return keyboard.adjust(*sizes).as_markup()  
+
+def portfolio_analysis_buttons():
+    keyboard = InlineKeyboardMarkup(row_width=2)
+    keyboard.add(
+        InlineKeyboardButton('Динамика портфеля', callback_data='portfolio_performance'),
+        InlineKeyboardButton('Доходность портфеля', callback_data='portfolio_return'),
+        InlineKeyboardButton('Динамика акций', callback_data='stocks_performance')
+    )
+    return keyboard

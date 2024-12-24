@@ -3,12 +3,13 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
 start_kb = ReplyKeyboardMarkup(
     keyboard=[
         [
-            KeyboardButton(text='Меню'),
+            # KeyboardButton(text='Меню'),
+            KeyboardButton(text='Портфели'),
             KeyboardButton(text='О боте'),
+
         ],
         [
-            KeyboardButton(text='Портфели'),
-            KeyboardButton(text='Структурные продукты'),
+            # KeyboardButton(text='Структурные продукты'),
         ]
     ],
     resize_keyboard=True,
