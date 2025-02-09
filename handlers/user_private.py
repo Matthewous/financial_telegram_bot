@@ -219,10 +219,11 @@ async def handle_end_date(message: types.Message, state: FSMContext, session: As
         end_date = datetime.strptime(message.text, "%Y-%m-%d").date()
         
         # Получаем портфель из состояния
-        # portfolio_id = callback.data.split('_')[-1]
         portfolio = PortfolioAnalisys.portfolio_for_analisys
 
-            # Расчитываем динамику портфеля и доходность на указанную дату
+        if portfolio.start_date >= end_date: raise IndexError
+
+        # Расчитываем динамику портфеля и доходность на указанную дату
         performance = await calculate_portfolio_performance(session, portfolio, portfolio.start_date, end_date)
 
         # Отправляем стоимость портфеля и доходность
@@ -234,40 +235,13 @@ async def handle_end_date(message: types.Message, state: FSMContext, session: As
         await message.answer(f'Доходность портфеля на {end_date}: {portfolio_return:.2f}%')
 
         # Строим график динамики стоимости портфеля
-        graph_buf = await plot_portfolio_performance(message, performance)
-
-        # graph_send_result = send_graph_func(message, graph_buf)
-        # await message.answer_photo(BufferedInputFile(graph_buf, filename="portfolio_performance.png"))
-        # await message.answer_photo(InputMediaPhoto(graph_buf))
-        # Используем InputMediaPhoto с правильными аргументами
-        # Обертываем graph_buf в InputFile
-        # graph_file = BufferedInputFile(graph_buf, filename="portfolio_performance.png")
-        # media = InputMediaPhoto(media=graph_file, caption="Динамика стоимости портфеля")
-        # await message.answer_media_group(media=[media])
-                # Сохраняем график в базу данных
-        graph_id = await save_graph_to_db(session, graph_buf)
-
-        # Загружаем график из базы данных
-        graph_file = await get_graph_from_db(session, graph_id)
-
-        if graph_file:
-            # Отправляем изображение
-            await message.answer_photo(BufferedInputFile(graph_file, filename="portfolio_performance.png"))
-
-            # Удаляем график из базы данных после отправки
-            await delete_graph_from_db(session, graph_id)
-        else:
-            print('Файл не найден!')
-        # await bot.send_photo(message.chat.id, BufferedInputFile(plot_portfolio_performance(performance), filename="portfolio_performance.png"))
-        # print(graph_send_result)
+        graph_buf = await plot_portfolio_performance(message, performance, session)
         
-        # # Сохраняем график в буфер
-        # graph_file = BufferedInputFile(graph_buf, filename="portfolio_performance.png")
-
-        # await bot.send_photo(message.chat.id, BufferedInputFile(plot_portfolio_performance(performance), filename="portfolio_performance.png"))
-
     except ValueError as e:
-        await message.answer(f'Неверный формат даты! Пожалуйста, введите дату в формате "ГГГГ-ММ-ДД". {e}')
+        await message.answer(f'Неверный формат даты! Пожалуйста, введите дату в формате "ГГГГ-ММ-ДД".')
+
+    except IndexError as e:
+        await message.answer(f'Ошибка! Укажите дату, которая больше даты фиксации портфеля!')
 
 
 # Меню

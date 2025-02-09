@@ -3,8 +3,9 @@ from typing import List, Dict
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from requests import session
+from aiogram.types import BufferedInputFile
 
 from database.models import Portfolio_Stocks
 from database.orm_queries import delete_graph_from_db, get_graph_from_db, get_portfolio_structure, save_graph_to_db
@@ -212,7 +213,7 @@ async def calculate_portfolio_performance(session, portfolio, start_date: str, e
 
 #     return portfolio_performance
 
-async def plot_portfolio_performance(message, portfolio_performance):
+async def plot_portfolio_performance(message, portfolio_performance, session: AsyncSession):
     dates = [perf['date'] for perf in portfolio_performance]
     values = [perf['portfolio_value'] for perf in portfolio_performance]
 
@@ -225,29 +226,20 @@ async def plot_portfolio_performance(message, portfolio_performance):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    # plt.show()
 
     # Сохраняем график в буфер
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
     plt.close()
+    
+    print("Sending graph to Telegram")
+    await bot.send_photo(chat_id=message.chat.id, photo=BufferedInputFile(buf.getvalue(), filename="portfolio_performance.png"))  # Оборачиваем buf в BufferedInputFile
 
-    # from common.bot_config import bot
-    # await bot.send_photo(message.chat.id, BufferedInputFile(buf, filename="portfolio_performance.png"))
-    graph_id = await save_graph_to_db(session, buf)
+    # graph_id = await save_graph_to_db(session, buf) # !!! session передается теперь !!!
 
-    # Загружаем график из базы данных
-    graph_file = await get_graph_from_db(session, graph_id)
+    # # Загружаем график из базы данных (больше не нужно)
+    # graph_file = await get_graph_from_db(session, graph_id) # !! не нужно !!
 
-    if graph_file:
-        # Отправляем изображение
-        await bot.send_photo(chat_id=message.chat.id, photo=open(graph_file, 'rb'))
-
-        # Удаляем график из базы данных после отправки
-        await delete_graph_from_db(session, graph_id)
-    else:
-        print('Файл не найден!')
-
+    print("Function plot_portfolio_performance finished")
     return buf
-
