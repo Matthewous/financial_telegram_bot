@@ -1,3 +1,4 @@
+from logging import config
 from aiogram import types, Router, F
 from aiogram.filters.command import Command
 from aiogram.fsm.state import State, StatesGroup
@@ -6,19 +7,17 @@ from aiogram.filters import StateFilter, or_f
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 from sqlalchemy.orm import sessionmaker
-from aiogram.types import InputFile
+from aiogram.types import BufferedInputFile, InputFile, InputMediaPhoto
 
+from common.bot_functions import send_graph_func
 from database.models import Portfolio
 from keyboards import reply
-from database.orm_queries import orm_add_portfolio, orm_get_portfolios, orm_delete_portfolio, orm_get_portfolio, orm_update_portfolio
+from database.orm_queries import delete_graph_from_db, get_graph_from_db, orm_add_portfolio, orm_get_portfolios, orm_delete_portfolio, orm_get_portfolio, orm_update_portfolio, save_graph_to_db
 from keyboards.inline import get_allback_buttons, portfolio_analysis_buttons
 # from services.moex_api import fetch_shares_quotes
 from services.portfolio_analisys import calculate_portfolio_performance, plot_portfolio_performance
 
 user_private_router = Router()
-
-
-
 
 class AddPortfolio(StatesGroup):
     name = State()
@@ -209,6 +208,7 @@ async def portfolio_analisys_command(callback: types.CallbackQuery, state:FSMCon
 # Обработка ввода даты
 @user_private_router.message(StateFilter(PortfolioAnalisys.end_date))
 async def handle_end_date(message: types.Message, state: FSMContext, session: AsyncSession):
+    from common.bot_config import bot
     if message.text.lower() == 'отмена':
         await message.answer('Операция отменена.')
         await state.finish()
@@ -234,29 +234,40 @@ async def handle_end_date(message: types.Message, state: FSMContext, session: As
         await message.answer(f'Доходность портфеля на {end_date}: {portfolio_return:.2f}%')
 
         # Строим график динамики стоимости портфеля
-        graph_buf = plot_portfolio_performance(performance)
-        # Создаем InputFile из буфера
-        # image_file = InputFile(graph_buf, filename="graph.png")
+        graph_buf = await plot_portfolio_performance(message, performance)
 
-        # # Отправляем картинку в Telegram
-        # await message.answer("Вот ваш график:", photo=image_file)
-        # await message.answer("График динамики портфеля:", file=graph_buf)
+        # graph_send_result = send_graph_func(message, graph_buf)
+        # await message.answer_photo(BufferedInputFile(graph_buf, filename="portfolio_performance.png"))
+        # await message.answer_photo(InputMediaPhoto(graph_buf))
+        # Используем InputMediaPhoto с правильными аргументами
+        # Обертываем graph_buf в InputFile
+        # graph_file = BufferedInputFile(graph_buf, filename="portfolio_performance.png")
+        # media = InputMediaPhoto(media=graph_file, caption="Динамика стоимости портфеля")
+        # await message.answer_media_group(media=[media])
+                # Сохраняем график в базу данных
+        graph_id = await save_graph_to_db(session, graph_buf)
 
-        # Строим график динамики стоимости портфеля и отправляем его в чат
-        # graph_buf = plot_portfolio_performance(performance)
-        # await message.answer("График динамики портфеля:", file=graph_buf)
+        # Загружаем график из базы данных
+        graph_file = await get_graph_from_db(session, graph_id)
 
-        # Строим график динамики стоимости портфеля и отправляем его в чат
-        # graph_buf = plot_portfolio_performance(performance)
+        if graph_file:
+            # Отправляем изображение
+            await message.answer_photo(BufferedInputFile(graph_file, filename="portfolio_performance.png"))
+
+            # Удаляем график из базы данных после отправки
+            await delete_graph_from_db(session, graph_id)
+        else:
+            print('Файл не найден!')
+        # await bot.send_photo(message.chat.id, BufferedInputFile(plot_portfolio_performance(performance), filename="portfolio_performance.png"))
+        # print(graph_send_result)
         
         # # Сохраняем график в буфер
-        # graph_file = InputFile(graph_buf, filename="portfolio_performance.png")
-        
-        # # Отправляем изображение
-        # await message.answer("График динамики портфеля:", file=graph_file)
+        # graph_file = BufferedInputFile(graph_buf, filename="portfolio_performance.png")
 
-    except ValueError:
-        await message.answer('Неверный формат даты! Пожалуйста, введите дату в формате "ГГГГ-ММ-ДД".')
+        # await bot.send_photo(message.chat.id, BufferedInputFile(plot_portfolio_performance(performance), filename="portfolio_performance.png"))
+
+    except ValueError as e:
+        await message.answer(f'Неверный формат даты! Пожалуйста, введите дату в формате "ГГГГ-ММ-ДД". {e}')
 
 
 # Меню

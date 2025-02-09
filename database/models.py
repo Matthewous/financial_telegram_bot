@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, BigInteger, Table, Date
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, BigInteger, Table, Date, LargeBinary
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -51,3 +51,9 @@ class Portfolio_Stocks(Base):
 
     portfolio = relationship("Portfolio", back_populates="stocks")
     stock = relationship("Stock")
+
+class PortfolioGraph(Base):
+    __tablename__ = 'portfolio_graphs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    graph_data = Column(LargeBinary)  # Сохраняем график как бинарные данные

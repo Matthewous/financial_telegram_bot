@@ -7,13 +7,15 @@ import io
 from requests import session
 
 from database.models import Portfolio_Stocks
-from database.orm_queries import get_portfolio_structure
+from database.orm_queries import delete_graph_from_db, get_graph_from_db, get_portfolio_structure, save_graph_to_db
 from services.moex_api import fetch_shares_quotes
+from common.bot_config import bot
 
 
 from typing import List, Dict
 import pandas as pd
 from sqlalchemy.orm import joinedload
+from aiogram.types import BufferedInputFile
 
 # def calculate_portfolio_performance(portfolio, start_date: str, end_date: str, session) -> List[Dict]:
 #     portfolio_performance = []
@@ -210,7 +212,7 @@ async def calculate_portfolio_performance(session, portfolio, start_date: str, e
 
 #     return portfolio_performance
 
-def plot_portfolio_performance(portfolio_performance):
+async def plot_portfolio_performance(message, portfolio_performance):
     dates = [perf['date'] for perf in portfolio_performance]
     values = [perf['portfolio_value'] for perf in portfolio_performance]
 
@@ -223,30 +225,29 @@ def plot_portfolio_performance(portfolio_performance):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    # plt.show()
 
     # Сохраняем график в буфер
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
+    plt.close()
+
+    # from common.bot_config import bot
+    # await bot.send_photo(message.chat.id, BufferedInputFile(buf, filename="portfolio_performance.png"))
+    graph_id = await save_graph_to_db(session, buf)
+
+    # Загружаем график из базы данных
+    graph_file = await get_graph_from_db(session, graph_id)
+
+    if graph_file:
+        # Отправляем изображение
+        await bot.send_photo(chat_id=message.chat.id, photo=open(graph_file, 'rb'))
+
+        # Удаляем график из базы данных после отправки
+        await delete_graph_from_db(session, graph_id)
+    else:
+        print('Файл не найден!')
+
     return buf
 
-    # # Создаём график
-
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(dates, values, label="Динамика портфеля")
-    # plt.xlabel('Дата')
-    # plt.ylabel('Стоимость портфеля')
-    # plt.title('Динамика стоимости портфеля')
-    # plt.xticks(rotation=45)
-    # plt.grid(True)
-    # plt.legend()
-    # plt.tight_layout()
-
-    # # Сохраняем график в буфер
-    # buf = io.BytesIO()
-    # plt.savefig(buf, format='png')
-    # buf.seek(0)  # Возвращаемся в начало буфера
-    # plt.close()  # Закрываем график, чтобы избежать утечек памяти
-
-    # return buf

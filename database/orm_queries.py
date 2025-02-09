@@ -1,10 +1,11 @@
+import io
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import joinedload
 
-from database.models import User, Portfolio, Stock, Portfolio_Stocks
+from database.models import PortfolioGraph, User, Portfolio, Stock, Portfolio_Stocks
 
 async def orm_add_portfolio(session: AsyncSession, data: dict):
     new_portfolio = Portfolio(
@@ -73,3 +74,39 @@ async def get_portfolio_structure(session: AsyncSession, portfolio_id: int):
     print(f"Portfolio structure for portfolio_id {portfolio_id}: {portfolio_structure}")  # Логирование результата
     
     return portfolio_structure
+
+
+async def save_graph_to_db(session: AsyncSession, graph_buf: io.BytesIO):
+    # Читаем данные из графика в бинарный формат
+    graph_data = graph_buf.read()
+
+    # Создаем объект модели
+    graph_record = PortfolioGraph(graph_data=graph_data)
+
+    # Сохраняем график в базу данных
+    session.add(graph_record)
+    await session.commit()
+
+    return graph_record.id  # Возвращаем ID сохраненного графика
+
+async def get_graph_from_db(session: AsyncSession, graph_id: int):
+    # Извлекаем график по ID
+    result = await session.execute(select(PortfolioGraph).filter_by(id=graph_id))
+    graph_record = result.scalars().first()
+
+    if graph_record:
+        # Создаем BufferedInputFile из бинарных данных
+        graph_buf = io.BytesIO(graph_record.graph_data)
+        graph_buf.seek(0)
+        return graph_buf
+    return None
+
+async def delete_graph_from_db(session: AsyncSession, graph_id: int):
+    # Извлекаем график по ID
+    result = await session.execute(select(PortfolioGraph).filter_by(id=graph_id))
+    graph_record = result.scalars().first()
+
+    if graph_record:
+        # Удаляем график из базы данных
+        await session.delete(graph_record)
+        await session.commit()

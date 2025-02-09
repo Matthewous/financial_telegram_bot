@@ -8,14 +8,15 @@ from middlewares.database import DataBaseSession
 from handlers.user_private import user_private_router
 from common.bot_commands import private
 
+from common.bot_config import bot, dp
 # import logging
 # Включаем логирование, чтобы не пропустить важные сообщения
 # logging.basicConfig(level=logging.INFO)
 
 # ALLOWED_UPDATES = ['message','edited_message', 'callback_query']
 
-bot = Bot(token=config('TOKEN'))
-dp = Dispatcher() ### фильтрация сообщений от пользователей
+
+
 
 dp.include_router(user_private_router)
 
