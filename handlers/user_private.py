@@ -236,12 +236,15 @@ async def handle_end_date(message: types.Message, state: FSMContext, session: As
 
         # Строим график динамики стоимости портфеля
         graph_buf = await plot_portfolio_performance(message, performance, session)
+
+        await state.clear()
         
     except ValueError as e:
         await message.answer(f'Неверный формат даты! Пожалуйста, введите дату в формате "ГГГГ-ММ-ДД".')
 
     except IndexError as e:
         await message.answer(f'Ошибка! Укажите дату, которая больше даты фиксации портфеля!')
+
 
 
 # Меню
