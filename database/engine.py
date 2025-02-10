@@ -23,3 +23,12 @@ async def drop_db():
 # # Вызов init_db() при запуске скрипта, чтобы гарантировать, что таблицы созданы
 # if __name__ == "__main__":
 #     init_db()
+
+# Default database URL (from environment variable)
+DATABASE_URL = os.getenv('DB_LITE')
+
+# Test database URL (SQLite in-memory)
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"  # SQLite in-memory
+
+def get_database_url():
+    return TEST_DATABASE_URL if os.getenv("TESTING") else DATABASE_URL

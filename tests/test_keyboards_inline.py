@@ -15,8 +15,10 @@ def test_get_allback_buttons():
 def test_portfolio_analysis_buttons():
     keyboard = portfolio_analysis_buttons()
     assert isinstance(keyboard, InlineKeyboardMarkup)
-    assert len(keyboard.inline_keyboard[0]) == 2
+    assert len(keyboard.inline_keyboard[0]) == 3  # Теперь 3 кнопки
     assert keyboard.inline_keyboard[0][0].text == "Динамика портфеля"
     assert keyboard.inline_keyboard[0][0].callback_data == "portfolio_performance"
     assert keyboard.inline_keyboard[0][1].text == "Доходность портфеля"
     assert keyboard.inline_keyboard[0][1].callback_data == "portfolio_return"
+    assert keyboard.inline_keyboard[0][2].text == "Динамика акций"
+    assert keyboard.inline_keyboard[0][2].callback_data == "stocks_performance"

@@ -26,10 +26,10 @@ def get_url_buttons(
     return keyboard.adjust(*sizes).as_markup()  
 
 def portfolio_analysis_buttons():
-    keyboard = InlineKeyboardMarkup(row_width=2)
-    keyboard.add(
-        InlineKeyboardButton('Динамика портфеля', callback_data='portfolio_performance'),
-        InlineKeyboardButton('Доходность портфеля', callback_data='portfolio_return'),
-        InlineKeyboardButton('Динамика акций', callback_data='stocks_performance')
-    )
+    buttons = [
+        InlineKeyboardButton(text='Динамика портфеля', callback_data='portfolio_performance'),
+        InlineKeyboardButton(text='Доходность портфеля', callback_data='portfolio_return'),
+        InlineKeyboardButton(text='Динамика акций', callback_data='stocks_performance')
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[buttons])
     return keyboard
